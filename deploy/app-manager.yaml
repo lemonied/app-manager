@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-manager
+  namespace: applications
+  labels:
+    app: app-manager
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: app-manager
+  template:
+    metadata:
+      labels:
+        app: app-manager
+    spec:
+      containers:
+        - name: app-manager
+          image: app-manager
+          imagePullPolicy: Never
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+            - name: https
+              containerPort: 443
+              protocol: TCP
+          volumeMounts:
+            - name: app-manager-volume
+              mountPath: /etc/app-manager-config
+      serviceAccountName: applications-dashboard
+      restartPolicy: Always
+      volumes:
+        - name: app-manager-volume
+          configMap:
+            name: app-manager-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-manager
+  namespace: applications
+spec:
+  selector:
+    app: app-manager
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 80
+    - name: https
+      protocol: TCP
+      port: 443
+      targetPort: 443
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app-manager
+  namespace: applications
+  annotations:
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      rewrite /api/(.*) /$1 break;
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: app-manager
+                port:
+                  number: 80
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: applications-dashboard
+  namespace: applications
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-manager-config
+  namespace: applications
+data:
+  environments.baseUrl: /api/
