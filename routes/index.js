@@ -42,10 +42,13 @@ router.get('/modules', function(req, res, next) {
         // Error
       }
       items = items.map(v => v.data).filter(v => v.type === 'module');
+      if (!items.length) {
+        return of('');
+      }
       return zip(...items.map(v => {
         return request.get(`http://${v.service}.applications.svc.cluster.local/${v.remote}`).pipe(
           catchError(err => {
-            return of('');
+            return of(`/* ${err.message} */`);
           }),
         );
       })).pipe(
